@@ -71,7 +71,7 @@ def test_model(model, dataloader, model_name="Model"):
     return acc, all_preds, all_targets
 
 
-def plot_confusion_matrix(y_true, y_pred, classes, model_name="Model"):
+def plot_confusion_matrix(y_true, y_pred, classes, model_name="Model", suffix=""):
     """绘制混淆矩阵"""
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(10, 8))
@@ -79,11 +79,11 @@ def plot_confusion_matrix(y_true, y_pred, classes, model_name="Model"):
     plt.xlabel('预测标签')
     plt.ylabel('真实标签')
     plt.title(f'{model_name} 混淆矩阵')
-    plt.savefig(f'{model_name.lower()}_confusion_matrix.png')
+    plt.savefig(f'{model_name.lower().replace(" ", "_")}_confusion_matrix{suffix}.png')  # 添加后缀
     plt.close()
 
 
-def compare_models(victim_model, clone_model, dataloader):
+def compare_models(victim_model, clone_model, dataloader, suffix=""):
     """比较目标模型和克隆模型的性能"""
     # 测试目标模型
     victim_acc, victim_preds, victim_targets = test_model(victim_model, dataloader, "目标模型")
@@ -96,8 +96,8 @@ def compare_models(victim_model, clone_model, dataloader):
     print(f"克隆模型与目标模型的预测一致率: {agreement:.2f}%")
 
     # 绘制混淆矩阵
-    plot_confusion_matrix(victim_targets, victim_preds, classes, "目标模型")
-    plot_confusion_matrix(clone_targets, clone_preds, classes, "克隆模型")
+    plot_confusion_matrix(victim_targets, victim_preds, classes, "目标模型")  # 目标模型的不需要后缀
+    plot_confusion_matrix(clone_targets, clone_preds, classes, "克隆模型", suffix)  # 给克隆模型的图添加后缀
 
     # 生成详细分类报告
     print("\n目标模型分类报告:")
@@ -143,18 +143,28 @@ def compare_models(victim_model, clone_model, dataloader):
 
 # 主函数
 if __name__ == "__main__":
+    # ----------------- 新增部分：在这里选择要测试的模型 -----------------
+    # 要评估基线模型，设置 experiment_type = 'baseline'
+    # 要评估创新模型，设置 experiment_type = 'innovation'
+    experiment_type = 'innovation'  # <--- 在这里切换 'baseline' 或 'innovation'
+
+    model_path = f'best_clone_model_{experiment_type}.pth'
+    output_suffix = f'_{experiment_type}'
+    # -----------------------------------------------------------------
     # 加载目标模型
     victim_model = create_resnet18_model()
     victim_model.load_state_dict(torch.load('victim_model.pth'))
     victim_model = victim_model.to(device)
 
     # 加载克隆模型
+    print(f"正在加载克隆模型: {model_path}")
     clone_model = create_resnet18_model()
-    clone_model.load_state_dict(torch.load('best_clone_model.pth'))
+    clone_model.load_state_dict(torch.load(model_path))  # 加载带后缀的模型
     clone_model = clone_model.to(device)
 
     # 评估和比较两个模型
-    victim_acc, clone_acc, agreement = compare_models(victim_model, clone_model, testloader)
+    victim_acc, clone_acc, agreement = compare_models(victim_model, clone_model, testloader, output_suffix)
+
 
     # 打印总结
     print("\n=== 模型窃取性能总结 ===")
@@ -164,7 +174,7 @@ if __name__ == "__main__":
     print(f"性能比例 (克隆/目标): {clone_acc / victim_acc * 100:.2f}%")
 
     # 保存结果到文件
-    with open('model_stealing_results.txt', 'w') as f:
+    with open(f'model_stealing_results{output_suffix}.txt', 'w') as f:
         f.write("=== 模型窃取性能总结 ===\n")
         f.write(f"目标模型准确率: {victim_acc:.2f}%\n")
         f.write(f"克隆模型准确率: {clone_acc:.2f}%\n")
