@@ -420,7 +420,7 @@ class DFMS_HL_Swift(nn.Module):
         plt.ylabel('百分比 (%)')
         plt.title('生成图像的类别分布')
         plt.xticks(range(10))
-        plt.savefig('class_distribution.png')
+        plt.savefig('class_distribution_innovation.png')
         plt.close()
 
     def get_next_proxy_batch(self):
@@ -463,7 +463,7 @@ class DFMS_HL_Swift(nn.Module):
         # 更新最佳模型
         if accuracy > self.best_clone_acc:
             self.best_clone_acc = accuracy
-            torch.save(self.clone_model.state_dict(), 'best_clone_model.pth')
+            torch.save(self.clone_model.state_dict(), 'best_clone_model_innovation.pth')
             print(f"保存新的最佳模型，准确率: {accuracy:.2f}%")
 
         return accuracy
@@ -581,6 +581,7 @@ class DFMS_HL_Swift(nn.Module):
                 soft_labels = self.get_soft_label(fake_images)
                 hard_labels = soft_labels.argmax(dim=1)
 
+
                 # 提取特征
                 self.optimizer_F.zero_grad()
                 features = self.feature_extractor(fake_images)
@@ -672,15 +673,15 @@ class DFMS_HL_Swift(nn.Module):
         pbar.close()
 
         # 保存最终模型和训练历史
-        torch.save(self.clone_model.state_dict(), 'clone_model_final.pth')
-        torch.save(self.feature_extractor.state_dict(), 'feature_extractor_final.pth')
-        self._save_training_history(history)
+        torch.save(self.clone_model.state_dict(), 'clone_model_final_innovation.pth')
+        torch.save(self.feature_extractor.state_dict(), 'feature_extractor_final_innovation.pth')
+        self._save_training_history(history,'_innovation')
 
         print(f"SwiftThief-DFMS-HL训练完成，总查询数: {self.query_count}")
         print(f"最佳克隆模型准确率: {self.best_clone_acc:.2f}%")
 
         # 绘制训练损失
-        self._plot_training_history(history)
+        self._plot_training_history(history, '_innovation')
 
         # 最终评估
         final_acc = self.evaluate_clone()
@@ -754,13 +755,13 @@ class DFMS_HL_Swift(nn.Module):
         final_acc = self.evaluate_clone()
         print(f"初始化后克隆模型准确率: {final_acc:.2f}%")
 
-    def _save_training_history(self, history):
+    def _save_training_history(self, history, suffix=''):
         """保存训练历史到文件"""
         import pickle
-        with open('training_history.pkl', 'wb') as f:
+        with open(f'training_history{suffix}.pkl', 'wb') as f:
             pickle.dump(history, f)
 
-    def _plot_training_history(self, history):
+    def _plot_training_history(self, history,suffix=''):
         """绘制训练历史图表"""
         plt.figure(figsize=(18, 15))
 
@@ -790,8 +791,8 @@ class DFMS_HL_Swift(nn.Module):
 
         # 绘制MMD损失
         plt.subplot(4, 2, 5)
-        plt.plot(history['query_count'], history['mmd_loss'])
-        plt.title('MMD Loss')
+        plt.plot(history['query_count'], history['contrast_loss'])
+        plt.title('Contrastive Loss')
         plt.xlabel('Queries')
 
         # 绘制克隆损失
@@ -811,7 +812,7 @@ class DFMS_HL_Swift(nn.Module):
         plt.ylabel('Accuracy (%)')
 
         plt.tight_layout()
-        plt.savefig('active_dfms_hl_training_history.png')
+        plt.savefig(f'active_dfms_hl_training_history{suffix}.png')
         plt.close()
     def initialize_clone(self, num_iterations=50000, batch_size=128, evaluate_every=10000):
         """初始化克隆模型，增加迭代次数和定期评估"""
