@@ -363,7 +363,7 @@ class DFMS_HL:
         # 更新最佳模型
         if accuracy > self.best_clone_acc:
             self.best_clone_acc = accuracy
-            torch.save(self.clone_model.state_dict(), 'best_clone_model.pth')
+            torch.save(self.clone_model.state_dict(), 'best_clone_model_baseline.pth')
             print(f"保存新的最佳模型，准确率: {accuracy:.2f}%")
 
         return accuracy
@@ -457,7 +457,7 @@ class DFMS_HL:
         plt.ylabel('百分比 (%)')
         plt.title('生成图像的类别分布')
         plt.xticks(range(10))
-        plt.savefig('class_distribution.png')
+        plt.savefig('class_distribution_baseline.png')
         plt.close()
 
     def train(self, num_queries=8000000, batch_size=128, g_steps=1, c_steps=1, evaluate_every=100000):
@@ -632,7 +632,7 @@ class DFMS_HL:
         pbar.close()
 
         # 保存最终模型和训练历史
-        torch.save(self.clone_model.state_dict(), 'clone_model_final.pth')
+        torch.save(self.clone_model.state_dict(), 'clone_model_final_baseline.pth')
         self._save_training_history(history)
 
         print(f"DFMS-HL训练完成，总查询数: {self.query_count}")
@@ -650,7 +650,7 @@ class DFMS_HL:
     def _save_training_history(self, history):
         """保存训练历史到文件"""
         import pickle
-        with open('training_history.pkl', 'wb') as f:
+        with open('training_history_baseline.pkl', 'wb') as f:
             pickle.dump(history, f)
 
     def _plot_training_history(self, history):
@@ -698,7 +698,7 @@ class DFMS_HL:
         plt.ylabel('Accuracy (%)')
 
         plt.tight_layout()
-        plt.savefig('dfms_hl_training_history.png')
+        plt.savefig('dfms_hl_training_history_baseline.png')
         plt.close()
 
 
