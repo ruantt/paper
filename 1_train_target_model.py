@@ -9,6 +9,8 @@ import numpy as np
 import os
 import time
 
+#训练受害者模型
+
 # 设置随机种子，保证每次运行代码时，生成的随机数都是一样的。
 # 这对于复现实验结果至关重要。
 torch.manual_seed(42)
@@ -18,11 +20,13 @@ np.random.seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"使用设备: {device}")
 
-# --- 数据加载与预处理 ---
 
+
+# --- 数据加载与预处理 ---
 
 # 定义训练集的图像预处理流程。这是一个标准的“代码模板”。
 # transforms.Compose 会将一系列处理步骤串联起来。
+#在训练集中会使用数据增强技术
 transform_train = transforms.Compose([
     # 1. 随机裁剪：将32x32的图像随机裁剪，四周填充4个像素。这能增加图像的多样性，防止模型过拟合。
     transforms.RandomCrop(32, padding=4),
@@ -84,7 +88,7 @@ def create_victim_model():
 
 # --- 训练与评估 ---
 # 定义训练模型的函数。这是一个非常标准的PyTorch训练代码模板。
-def train_victim_model(model, epochs=100, save_path='victim_model.pth'):
+def train_victim_model(model, epochs=100, save_path='victim_model.pth'):#函数内部的循环执行100次
     """训练目标模型并保存"""
     model = model.to(device) # 将模型移动到我们之前定义的设备（GPU或CPU）上
     criterion = nn.CrossEntropyLoss()# 定义损失函数。交叉熵损失是分类任务最常用的损失函数。
@@ -98,6 +102,10 @@ def train_victim_model(model, epochs=100, save_path='victim_model.pth'):
 
     best_acc = 0.0 # 用于记录最佳测试准确率
     print("开始训练目标模型...")
+
+    output_dir = os.path.dirname(save_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     for epoch in range(epochs):
         model.train() # 告诉模型现在是训练模式。这会启用Dropout和BatchNorm等层。
@@ -116,8 +124,8 @@ def train_victim_model(model, epochs=100, save_path='victim_model.pth'):
             optimizer.step() # 更新模型参数
 
             # --- 统计损失和准确率，用于打印日志 ---
-            running_loss += loss.item()
-            _, predicted = outputs.max(1) # 获取预测结果中概率最大的那个类别的索引
+            running_loss += loss.item()#把当前这一批数据的损失值，累加到一个“进行中的总损失”里
+            _, predicted = outputs.max(1) # 获取预测结果中概率最大的那个类别的索引，最大值是多少并不关心
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item() # 统计预测正确的数量
 
@@ -147,6 +155,7 @@ def test_model(model, dataloader):
     correct = 0
     total = 0
 
+    #这里没有计算loss，没有loss.backward()，也没有optimizer.step()。因为监考老师只负责打分，不负责在考场上给学生讲题和辅导。
     with torch.no_grad(): # 在这个代码块中，所有计算都不会记录梯度，可以节省显存，加速计算。
         for inputs, labels in dataloader:
             inputs, labels = inputs.to(device), labels.to(device)
@@ -164,13 +173,16 @@ def test_model(model, dataloader):
 # 只有当你直接运行这个.py文件时，下面的代码才会被执行。
 # 如果你把它当作一个模块导入到其他文件中，下面的代码不会运行。
 if __name__ == "__main__":
+    VICTIM_MODEL_DIR = "results/0_victim_model"
+    VICTIM_MODEL_PATH = os.path.join(VICTIM_MODEL_DIR, "victim_model.pth")
+
     victim_model = create_victim_model()# 创建模型实例
-    # 开始训练，epochs=50表示我们只训练50个周期来快速得到一个模型
-    trained_model = train_victim_model(victim_model, epochs=50)
+    # 开始训练，epochs=50表示我们只训练50个周期来快速得到一个模型，请把整个训练过程重复50次，模型会把整个CIFAR-10训练集（50,000张图片）完整地看 50遍。每看完一遍，就完成一个Epoch。
+    trained_model = train_victim_model(victim_model, epochs=50, save_path=VICTIM_MODEL_PATH)
 
     # 训练结束后，加载保存的那个最佳模型
     best_model = create_victim_model()
-    best_model.load_state_dict(torch.load('victim_model.pth'))
+    best_model.load_state_dict(torch.load(VICTIM_MODEL_PATH))
     best_model = best_model.to(device)
     # 在测试集上再次验证最佳模型的性能
     test_model(best_model, testloader)
