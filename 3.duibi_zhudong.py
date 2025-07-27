@@ -257,6 +257,9 @@ class DFMS_HL_Swift_AWUS(nn.Module):
         #作用: 把队列的大小保存为一个普通的成员变量，方便后续代码直接使用。
         self.queue_size = queue_size
 
+        # 类别查询计数，用于优先级采样
+        self.register_buffer("class_query_counts", torch.zeros(10))
+
         # AWUS参数初始化
         #讲解下AWUS的策略：
         # 第一步：感知学习状态(在evaluate_clone函数中self.previous_predictions: 记住上一次评估时，模型对所有测试图片的预测结果。计算self.model_change: 在本次评估时，用新的预测结果和上次的旧结果进行对比。model_change就是预测结果发生变化的图片所占的比例。
@@ -1322,7 +1325,7 @@ if __name__ == "__main__":
 
     # 主训练过程
     history = dfms_hl.train(
-        num_queries=8000000,  # 论文中提到的800万查询预算
+        num_queries=5500000,  # 论文中提到的800万查询预算
         batch_size=128,
         g_steps=1,  # 每次迭代训练生成器1次
         c_steps=1,  # 每次迭代训练克隆模型1次，确保严格交替
