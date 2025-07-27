@@ -203,6 +203,7 @@ class DFMS_HL:
 
         # 查询计数器
         self.query_count = 0
+        
 
         # 设置优化器 - 使用更合适的学习率和权重衰减
         #更新G的权重
@@ -980,7 +981,7 @@ if __name__ == "__main__":
 
     # 主训练过程
     history = dfms_hl.train(
-        num_queries=8000000,  # 论文中提到的800万查询预算
+        num_queries=5500000,  # 论文中提到的800万查询预算
         batch_size=128,
         g_steps=1,  # 每次迭代训练生成器1次
         c_steps=1,  # 每次迭代训练克隆模型1次，确保严格交替
