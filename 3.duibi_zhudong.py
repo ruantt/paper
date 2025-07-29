@@ -1020,8 +1020,8 @@ class DFMS_HL_Swift_AWUS(nn.Module):
             total_loss.backward()
             self.optimizer_C.step()
             self.optimizer_F.step()
-            self.scheduler_C.step()
-            self.scheduler_F.step()
+            # self.scheduler_C.step()
+            # self.scheduler_F.step()
 
             # 更新特征队列
             with torch.no_grad():
@@ -1320,14 +1320,37 @@ if __name__ == "__main__":
     dfms_hl = DFMS_HL_Swift_AWUS(victim_model, generator, proxy_dataset=proxy_dataset, nc=nc,
                                  lambda_div=500, alpha_decay=0.9, output_dir=OUTPUT_DIR)
 
-    # 初始化克隆模型
+    # --- 步骤 1: 第一次初始化克隆模型 (得到一个“老师” C1) ---
+    print("【步骤1】第一次初始化克隆模型 (用于指导生成器)...")
+    dfms_hl.initialize_clone_with_contrastive(num_iterations=20000, evaluate_every=5000)
+    # (同样，请确保这里的学习率调度器问题已按之前的建议修复)
+
+    # --- 【关键补充】步骤 2: 从头训练一个新的、最终的克隆模型 ---
+    # 您的创新方法将G的训练融合在了主循环里，所以我们在这里需要
+    # 重置克隆模型，让它准备好用一个“进化后的G”来学习。
+
+    print("【步骤2 - 新增】重置并重新创建最终的克隆模型...")
+    # 重新创建克隆模型、特征提取器以及它们的优化器和调度器
+    dfms_hl.clone_model = create_clone_model().to(device)
+    dfms_hl.feature_extractor = dfms_hl._create_feature_extractor().to(device)
+
+    dfms_hl.optimizer_C = optim.SGD(dfms_hl.clone_model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
+    dfms_hl.optimizer_F = optim.SGD(dfms_hl.feature_extractor.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
+
+    dfms_hl.scheduler_C = CosineAnnealingLR(dfms_hl.optimizer_C, T_max=200)
+    dfms_hl.scheduler_F = CosineAnnealingLR(dfms_hl.optimizer_F, T_max=200)
+
+    # 再次调用初始化函数，用一个已经有初步指导能力的G来训练我们最终的C
+    # 这一步相当于用“稍微好一点的教材”来教出一个“基础更好的学生”
+    print("【步骤3】再次初始化，训练最终克隆模型...")
     dfms_hl.initialize_clone_with_contrastive(num_iterations=20000, evaluate_every=5000)
 
-    # 主训练过程
+    # --- 步骤 4: 开始最终的交替训练 ---
+    print("【步骤4】开始最终的交替训练...")
     history = dfms_hl.train(
-        num_queries=5500000,  # 论文中提到的800万查询预算
+        num_queries=3000000,  # 注意调整查询预算
         batch_size=128,
-        g_steps=1,  # 每次迭代训练生成器1次
-        c_steps=1,  # 每次迭代训练克隆模型1次，确保严格交替
-        evaluate_every=100000  # 每10万次查询评估一次
+        g_steps=1,
+        c_steps=1,
+        evaluate_every=100000
     )
