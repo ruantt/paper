@@ -460,7 +460,7 @@ class DFMS_HL:
             loss = self.criterion_ce(outputs, labels)
             loss.backward()
             self.optimizer_C.step()#更新参数
-            self.scheduler_C.step()#更新学习率
+            # self.scheduler_C.step()#更新学习率
 
             # 更新进度条
             pbar.update(1)
@@ -970,20 +970,31 @@ if __name__ == "__main__":
     # 初始化DFMS_HL
     dfms_hl = DFMS_HL(victim_model, generator, proxy_dataset=proxy_dataset, nc=nc, lambda_div=500,output_dir=OUTPUT_DIR)
 
-    # 初始化克隆模型
+    # --- 论文步骤 2: 第一次初始化克隆模型 (C_initial) ---
+    print("【步骤1】第一次初始化克隆模型...")
+    dfms_hl.initialize_clone(num_iterations=20000, evaluate_every=20000)
+    # (请确保这里的学习率调度器问题已经按之前的建议修复)
+
+    # --- 论文步骤 3: 使用 C_initial 微调生成器 ---
+    print("【步骤2】微调生成器...")
+    dfms_hl.initialize_generator(nG=5000)  # 使用较小的迭代次数
+
+    # --- 【关键补充】论文步骤 4: 从头训练一个新的克隆模型 (C_final_initial) ---
+    print("【步骤3 - 新增】重新创建并训练克隆模型...")
+    # 重新创建克隆模型和优化器，相当于“从头开始”
+    dfms_hl.clone_model = create_clone_model().to(device)
+    dfms_hl.optimizer_C = optim.SGD(dfms_hl.clone_model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
+    dfms_hl.scheduler_C = CosineAnnealingLR(dfms_hl.optimizer_C, T_max=200)  # 也重新创建调度器
+
+    # 使用微调后的G，再次调用克隆初始化函数，得到一个好的起点
     dfms_hl.initialize_clone(num_iterations=20000, evaluate_every=20000)
 
-
-    # 生成器初始化
-    print("初始化生成器...")
-    dfms_hl.initialize_generator(nG=50000)  # 原论文中的nG迭代次数
-
-
-    # 主训练过程
+    # --- 论文步骤 5: 开始最终的交替训练 ---
+    print("【步骤4】开始最终交替训练...")
     history = dfms_hl.train(
-        num_queries=5500000,  # 论文中提到的800万查询预算
+        num_queries=3000000,  # 这里的预算可能需要根据前面的消耗进行调整
         batch_size=128,
-        g_steps=1,  # 每次迭代训练生成器1次
-        c_steps=1,  # 每次迭代训练克隆模型1次，确保严格交替
-        evaluate_every=100000  # 每10万次查询评估一次
+        g_steps=1,
+        c_steps=1,
+        evaluate_every=100000
     )
